@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -736,30 +736,223 @@
             }
         }
 
-        // SINCRONIZAR CLOUD
+        // SINCRONIZAR CLOUD - OTIMIZADO
         async function sincronizarCloud() {
             if (!supabaseClient) {
-                alert('Cloud não disponível');
+                alert('❌ Cloud não disponível.\n\nVerifique sua conexão com a internet.');
                 return;
             }
             
+            // LOGIN
             if (!usuarioCloud) {
-                const email = prompt('Email:');
-                const senha = prompt('Senha:');
-                if (!email || !senha) return;
+                const email = prompt('📧 Email:');
+                if (!email) return;
+                
+                const senha = prompt('🔒 Senha:');
+                if (!senha) return;
+                
+                // Mostrar loading
+                const badge = document.getElementById('cloudBadge');
+                badge.innerHTML = '⏳ Conectando...';
+                badge.style.background = 'linear-gradient(135deg, var(--accent), var(--primary))';
                 
                 try {
-                    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
+                    // Tentar login
+                    let { data, error } = await supabaseClient.auth.signInWithPassword({ 
+                        email: email.trim(), 
+                        password: senha 
+                    });
+                    
+                    // Se erro, tentar criar conta
+                    if (error) {
+                        const criar = confirm('Conta não encontrada. Criar nova?');
+                        if (!criar) {
+                            badge.innerHTML = '☁️ Offline';
+                            badge.style.background = 'rgba(108, 117, 125, 0.3)';
+                            return;
+                        }
+                        
+                        const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+                            email: email.trim(),
+                            password: senha
+                        });
+                        
+                        if (signUpError) throw signUpError;
+                        
+                        // Login após criar
+                        ({ data, error } = await supabaseClient.auth.signInWithPassword({ 
+                            email: email.trim(), 
+                            password: senha 
+                        }));
+                    }
+                    
                     if (error) throw error;
+                    
                     usuarioCloud = data.user;
-                    alert('✓ Conectado!');
+                    badge.innerHTML = '☁️ Online';
+                    badge.style.background = 'linear-gradient(135deg, var(--success), var(--secondary))';
+                    badge.style.color = 'white';
+                    
                 } catch (e) {
-                    alert('Erro: ' + e.message);
+                    badge.innerHTML = '☁️ Offline';
+                    badge.style.background = 'rgba(108, 117, 125, 0.3)';
+                    alert('❌ Erro: ' + e.message);
                     return;
                 }
             }
             
-            alert('Sincronização em desenvolvimento...');
+            // SINCRONIZAR
+            const badge = document.getElementById('cloudBadge');
+            const textoOriginal = badge.innerHTML;
+            
+            try {
+                // Corrigir IDs decimais
+                parcelas.forEach(p => {
+                    if (!Number.isInteger(p.id)) p.id = Math.floor(p.id);
+                });
+                
+                // UPLOAD EM BATCH (mais rápido)
+                badge.innerHTML = '⬆️ Enviando...';
+                
+                // Compras em batch
+                if (compras.length > 0) {
+                    const comprasData = compras.map(c => ({
+                        id: c.id,
+                        data: c.data,
+                        quantidade: c.quantidade,
+                        valor_unitario: c.valorUnitario,
+                        valor_total: c.valorTotal,
+                        fornecedor: c.fornecedor || null,
+                        user_id: usuarioCloud.id
+                    }));
+                    
+                    await supabaseClient.from('compras').upsert(comprasData);
+                }
+                
+                // Vendas em batch
+                if (vendas.length > 0) {
+                    const vendasData = vendas.map(v => ({
+                        id: v.id,
+                        data: v.data,
+                        quantidade: v.quantidade,
+                        valor_unitario: v.valorUnitario,
+                        valor_total: v.valorTotal,
+                        cliente: v.cliente || null,
+                        tipo_pagamento: v.tipoPagamento,
+                        num_parcelas: v.numParcelas,
+                        taxa_juros: 0,
+                        status: v.status,
+                        user_id: usuarioCloud.id
+                    }));
+                    
+                    await supabaseClient.from('vendas').upsert(vendasData);
+                }
+                
+                // Parcelas em batch
+                if (parcelas.length > 0) {
+                    const parcelasData = parcelas.map(p => ({
+                        id: p.id,
+                        venda_id: p.vendaId,
+                        cliente: p.cliente || null,
+                        numero_parcela: p.numeroParcela,
+                        total_parcelas: p.totalParcelas,
+                        valor: p.valor,
+                        custo_unitario: null,
+                        custo_parcela: null,
+                        lucro_parcela: null,
+                        margem_parcela: null,
+                        quantidade_vendida: null,
+                        vencimento: p.vencimento,
+                        data_pagamento: p.dataPagamento,
+                        status: p.status,
+                        user_id: usuarioCloud.id
+                    }));
+                    
+                    await supabaseClient.from('parcelas').upsert(parcelasData);
+                }
+                
+                // DOWNLOAD
+                badge.innerHTML = '⬇️ Baixando...';
+                
+                const { data: comprasCloud } = await supabaseClient
+                    .from('compras')
+                    .select('*')
+                    .eq('user_id', usuarioCloud.id);
+                
+                const { data: vendasCloud } = await supabaseClient
+                    .from('vendas')
+                    .select('*')
+                    .eq('user_id', usuarioCloud.id);
+                
+                const { data: parcelasCloud } = await supabaseClient
+                    .from('parcelas')
+                    .select('*')
+                    .eq('user_id', usuarioCloud.id);
+                
+                // Atualizar dados locais
+                if (comprasCloud) {
+                    compras = comprasCloud.map(c => ({
+                        id: c.id,
+                        data: c.data,
+                        quantidade: c.quantidade,
+                        valorUnitario: c.valor_unitario,
+                        valorTotal: c.valor_total,
+                        fornecedor: c.fornecedor || ''
+                    }));
+                    localStorage.setItem('compras', JSON.stringify(compras));
+                }
+                
+                if (vendasCloud) {
+                    vendas = vendasCloud.map(v => ({
+                        id: v.id,
+                        data: v.data,
+                        quantidade: v.quantidade,
+                        valorUnitario: v.valor_unitario,
+                        valorTotal: v.valor_total,
+                        cliente: v.cliente || '',
+                        tipoPagamento: v.tipo_pagamento,
+                        numParcelas: v.num_parcelas,
+                        status: v.status
+                    }));
+                    localStorage.setItem('vendas', JSON.stringify(vendas));
+                }
+                
+                if (parcelasCloud) {
+                    parcelas = parcelasCloud.map(p => ({
+                        id: p.id,
+                        vendaId: p.venda_id,
+                        cliente: p.cliente || '',
+                        numeroParcela: p.numero_parcela,
+                        totalParcelas: p.total_parcelas,
+                        valor: p.valor,
+                        vencimento: p.vencimento,
+                        dataPagamento: p.data_pagamento,
+                        status: p.status
+                    }));
+                    localStorage.setItem('parcelas', JSON.stringify(parcelas));
+                }
+                
+                // Atualizar interface
+                atualizarDashboard();
+                
+                // Sucesso
+                badge.innerHTML = '✅ Sincronizado';
+                badge.style.background = 'linear-gradient(135deg, var(--success), var(--secondary))';
+                
+                setTimeout(() => {
+                    badge.innerHTML = '☁️ Online';
+                }, 2000);
+                
+                alert(`✅ Sincronização completa!\n\n` +
+                      `Compras: ${compras.length}\n` +
+                      `Vendas: ${vendas.length}\n` +
+                      `Parcelas: ${parcelas.length}`);
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                badge.innerHTML = textoOriginal;
+                alert('❌ Erro ao sincronizar:\n' + error.message);
+            }
         }
 
         // INICIALIZAR
