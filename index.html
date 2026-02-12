@@ -1641,6 +1641,12 @@
             if (sectionId === 'dashboard' || sectionId === 'analise') {
                 atualizarDashboard();
             }
+            if (sectionId === 'analise') {
+                // Criar gráficos com delay para garantir que canvas está pronto
+                setTimeout(() => {
+                    criarGraficos();
+                }, 100);
+            }
             if (sectionId === 'parcelas') {
                 renderizarParcelas();
             }
@@ -3058,21 +3064,113 @@
             document.getElementById('percentRecebido').textContent = percentRecebido.toFixed(1) + '%';
             document.getElementById('progressRecebimento').style.width = percentRecebido + '%';
 
-            // Atualizar análise
+            // CALCULAR LUCRO DO MÊS ATUAL (baseado em parcelas pagas no mês)
+            const hoje = new Date();
+            const mesAtual = hoje.getMonth();
+            const anoAtual = hoje.getFullYear();
+            
+            const custoUnitarioMedio = unidadesCompradas > 0 ? (totalInvestido / unidadesCompradas) : 0;
+            
+            let lucroMesAtual = 0;
+            let receita MesAtual = 0;
+            
+            parcelas.forEach(p => {
+                if (p.status === 'Pago' && p.dataPagamento) {
+                    const dataPgto = new Date(p.dataPagamento);
+                    if (dataPgto.getMonth() === mesAtual && dataPgto.getFullYear() === anoAtual) {
+                        receitaMesAtual += p.valor;
+                        // Lucro da parcela já calculado
+                        lucroMesAtual += (p.lucroParcela || 0);
+                    }
+                }
+            });
+            
+            // Atualizar lucro do mês nos dashboards
+            document.getElementById('lucroMesDashboard').textContent = formatarMoeda(lucroMesAtual);
+            document.getElementById('lucroTotalDashboard').textContent = formatarMoeda(totalLucro);
+            
+            // Análise completa - preencher TODOS os campos
             document.getElementById('analiseROI').textContent = roi.toFixed(1) + '%';
             document.getElementById('analiseMargem').textContent = margemBruta.toFixed(1) + '%';
             const markup = totalInvestido > 0 ? ((totalReceita - totalInvestido) / totalInvestido * 100) : 0;
             document.getElementById('analiseMarkup').textContent = markup.toFixed(1) + '%';
+            document.getElementById('analiseTicketMedio').textContent = formatarMoeda(ticketMedio);
 
+            // Estoque
             document.getElementById('analiseEstoqueInicial').textContent = unidadesCompradas + ' un';
             document.getElementById('analiseVendidas').textContent = unidadesVendidas + ' un';
             document.getElementById('analiseEstoqueAtual').textContent = estoqueAtual + ' un';
-            document.getElementById('analiseCapitalEstoque').textContent = formatarMoeda(valorEstoque);
+            const taxaGiroAnalise = unidadesCompradas > 0 ? (unidadesVendidas / unidadesCompradas * 100) : 0;
+            document.getElementById('analiseTaxaGiro').textContent = taxaGiroAnalise.toFixed(1) + '%';
 
+            // Análise Financeira
+            document.getElementById('analiseReceitaTotal').textContent = formatarMoeda(totalReceita);
+            document.getElementById('analiseLucroTotal').textContent = formatarMoeda(totalLucro);
+            document.getElementById('analiseLucroMes').textContent = formatarMoeda(lucroMesAtual);
+            const mediaMensal = vendas.length > 0 ? totalLucro / Math.max(1, Math.ceil(vendas.length / 30)) : 0;
+            document.getElementById('analiseMediaMensal').textContent = formatarMoeda(mediaMensal);
+
+            // Fluxo de Caixa
             document.getElementById('analiseEntrada').textContent = formatarMoeda(totalRecebido);
+            document.getElementById('analiseAReceber').textContent = formatarMoeda(totalAReceber);
             document.getElementById('analiseSaida').textContent = formatarMoeda(totalInvestido);
             document.getElementById('analiseSaldo').textContent = formatarMoeda(totalRecebido - totalInvestido);
-            document.getElementById('analiseEficiencia').textContent = percentRecebido.toFixed(1) + '%';
+
+            // Métricas de Vendas
+            const totalVendas = vendas.length;
+            const vendasVista = vendas.filter(v => v.tipoPagamento === 'vista').length;
+            const vendasParceladas = vendas.filter(v => v.tipoPagamento === 'parcelado').length;
+            const percParcelamento = totalVendas > 0 ? (vendasParceladas / totalVendas * 100) : 0;
+            
+            document.getElementById('analiseTotalVendas').textContent = totalVendas;
+            document.getElementById('analiseVendasVista').textContent = vendasVista;
+            document.getElementById('analiseVendasParceladas').textContent = vendasParceladas;
+            document.getElementById('analisePercParcelamento').textContent = percParcelamento.toFixed(1) + '%';
+
+            // Velocidade de Vendas
+            const diasOperacao = compras.length > 0 ? Math.ceil((hoje - new Date(compras[0].data)) / (1000 * 60 * 60 * 24)) : 0;
+            const vendasPorDia = diasOperacao > 0 ? (unidadesVendidas / diasOperacao).toFixed(1) : 0;
+            const tempoEstoque = unidadesVendidas > 0 ? (diasOperacao / unidadesVendidas).toFixed(0) : '-';
+            const prazoEsgotar = vendasPorDia > 0 && estoqueAtual > 0 ? Math.ceil(estoqueAtual / vendasPorDia) : '-';
+            const statusEstoque = estoqueAtual === 0 ? 'Esgotado' : estoqueAtual < 50 ? 'Baixo' : estoqueAtual < 200 ? 'Normal' : 'Alto';
+            
+            document.getElementById('analiseTempoEstoque').textContent = tempoEstoque + ' dias';
+            document.getElementById('analiseVendasDia').textContent = vendasPorDia + ' un/dia';
+            document.getElementById('analisePrazoEsgotar').textContent = prazoEsgotar + (prazoEsgotar !== '-' ? ' dias' : '');
+            document.getElementById('analiseStatusEstoque').textContent = statusEstoque;
+
+            // Análise Temporal
+            document.getElementById('analiseDiasOperacao').textContent = diasOperacao + ' dias';
+            const receitaDiaria = diasOperacao > 0 ? (totalReceita / diasOperacao) : 0;
+            const lucroDiario = diasOperacao > 0 ? (totalLucro / diasOperacao) : 0;
+            document.getElementById('analiseReceitaDiaria').textContent = formatarMoeda(receitaDiaria);
+            document.getElementById('analiseLucroDiario').textContent = formatarMoeda(lucroDiario);
+            
+            // Crescimento (simplificado - comparar mês atual vs anterior)
+            const crescimento = 0; // Será calculado quando tiver mais dados históricos
+            document.getElementById('analiseCrescimento').textContent = crescimento.toFixed(1) + '%';
+
+            // Análise de Pagamentos
+            const parcelasVencidas = parcelas.filter(p => p.status === 'Pendente' && new Date(p.vencimento) < hoje);
+            const valorInadimplencia = parcelasVencidas.reduce((acc, p) => acc + p.valor, 0);
+            const prazoMedio = parcelas.length > 0 ? 30 : 0; // Simplificado
+            const taxaAdimplencia = parcelas.length > 0 ? ((parcelas.length - parcelasVencidas.length) / parcelas.length * 100) : 100;
+            
+            document.getElementById('analisePrazoMedio').textContent = prazoMedio + ' dias';
+            document.getElementById('analiseInadimplencia').textContent = formatarMoeda(valorInadimplencia);
+            document.getElementById('analiseParcelasVencidas').textContent = parcelasVencidas.length;
+            document.getElementById('analiseTaxaAdimplencia').textContent = taxaAdimplencia.toFixed(1) + '%';
+
+            // Metas e Projeções
+            const metaMensal = totalLucro > 0 ? totalLucro * 1.2 : totalInvestido * 0.15; // Meta: 20% acima do atual
+            const projecaoAnual = lucroMesAtual * 12;
+            const breakeven = totalInvestido > 0 && lucroMesAtual > 0 ? (totalInvestido / lucroMesAtual).toFixed(1) : '-';
+            const eficiencia = totalInvestido > 0 ? ((totalRecebido / totalInvestido) * 100) : 0;
+            
+            document.getElementById('analiseMetaMensal').textContent = formatarMoeda(metaMensal);
+            document.getElementById('analiseProjecaoAnual').textContent = formatarMoeda(projecaoAnual);
+            document.getElementById('analiseBreakeven').textContent = breakeven + (breakeven !== '-' ? ' meses' : '');
+            document.getElementById('analiseEficiencia').textContent = eficiencia.toFixed(1) + '%';
 
             // Atualizar gráfico de barras
             const maxValor = Math.max(totalInvestido, totalReceita, totalLucro);
@@ -3090,6 +3188,150 @@
 
             if (totalLucro < 0) {
                 document.getElementById('barLucro').style.background = 'var(--danger)';
+            }
+        }
+
+        // Criar Gráficos
+        let graficoLucro, graficoDistrib, graficoPerf;
+        
+        function criarGraficos() {
+            // Destruir gráficos antigos se existirem
+            if (graficoLucro) graficoLucro.destroy();
+            if (graficoDistrib) graficoDistrib.destroy();
+            if (graficoPerf) graficoPerf.destroy();
+            
+            // Gráfico de Evolução do Lucro (últimos 6 meses)
+            const ctxLucro = document.getElementById('graficoLucroMensal');
+            if (ctxLucro) {
+                const hoje = new Date();
+                const meses = [];
+                const lucros = [];
+                
+                for (let i = 5; i >= 0; i--) {
+                    const mes = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+                    const mesNome = mes.toLocaleDateString('pt-BR', { month: 'short' });
+                    meses.push(mesNome);
+                    
+                    // Calcular lucro do mês
+                    let lucroMes = 0;
+                    parcelas.forEach(p => {
+                        if (p.status === 'Pago' && p.dataPagamento) {
+                            const dataPgto = new Date(p.dataPagamento);
+                            if (dataPgto.getMonth() === mes.getMonth() && dataPgto.getFullYear() === mes.getFullYear()) {
+                                lucroMes += (p.lucroParcela || 0);
+                            }
+                        }
+                    });
+                    lucros.push(lucroMes);
+                }
+                
+                graficoLucro = new Chart(ctxLucro, {
+                    type: 'line',
+                    data: {
+                        labels: meses,
+                        datasets: [{
+                            label: 'Lucro Mensal',
+                            data: lucros,
+                            borderColor: '#F7B801',
+                            backgroundColor: 'rgba(247, 184, 1, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: '#6C757D' },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            },
+                            x: {
+                                ticks: { color: '#6C757D' },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Gráfico de Distribuição de Vendas (Pizza)
+            const ctxDistrib = document.getElementById('graficoDistribuicao');
+            if (ctxDistrib) {
+                const vendasVista = vendas.filter(v => v.tipoPagamento === 'vista').length;
+                const vendasParceladas = vendas.filter(v => v.tipoPagamento === 'parcelado').length;
+                
+                graficoDistrib = new Chart(ctxDistrib, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['À Vista', 'Parcelado'],
+                        datasets: [{
+                            data: [vendasVista, vendasParceladas],
+                            backgroundColor: ['#06D6A0', '#F7B801'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: '#F7F9FB', padding: 15 }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Gráfico de Performance por Período (Barras)
+            const ctxPerf = document.getElementById('graficoPerformance');
+            if (ctxPerf) {
+                const totalInvestido = compras.reduce((acc, c) => acc + c.valorTotal, 0);
+                const totalReceita = vendas.reduce((acc, v) => acc + v.valorTotal, 0);
+                const totalLucro = totalReceita - (totalInvestido / compras.reduce((acc, c) => acc + c.quantidade, 0) * vendas.reduce((acc, v) => acc + v.quantidade, 0));
+                
+                graficoPerf = new Chart(ctxPerf, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Investimento', 'Receita', 'Lucro'],
+                        datasets: [{
+                            label: 'Valores',
+                            data: [totalInvestido, totalReceita, totalLucro],
+                            backgroundColor: ['#EF476F', '#06D6A0', '#F7B801'],
+                            borderWidth: 0,
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { 
+                                    color: '#6C757D',
+                                    callback: function(value) {
+                                        return 'R$ ' + (value/1000).toFixed(0) + 'k';
+                                    }
+                                },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            },
+                            x: {
+                                ticks: { color: '#6C757D' },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
             }
         }
 
