@@ -819,6 +819,16 @@
         <!-- PARCELAS SECTION -->
         <section id="parcelas" class="section">
             <h2 class="section-title">📋 Controle de Parcelas</h2>
+            
+            <!-- Botão de Correção -->
+            <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                <button class="btn" onclick="corrigirParcelasProblemáticas()" style="background: var(--accent); max-width: 300px;">
+                    🔧 Corrigir Parcelas com Problema
+                </button>
+                <button class="btn" onclick="recarregarParcelas()" style="background: var(--secondary); max-width: 200px;">
+                    🔄 Recarregar
+                </button>
+            </div>
 
             <div class="analysis-grid" style="margin-bottom: 30px;">
                 <div class="analysis-card">
@@ -1612,6 +1622,55 @@
                     const parsed = JSON.parse(parcelasStr);
                     if (Array.isArray(parsed)) {
                         parcelas = parsed;
+                        
+                        // 🔧 CORREÇÃO: Limpar IDs decimais e duplicados
+                        let corrigido = false;
+                        parcelas.forEach((p, index) => {
+                            // Converter IDs decimais em inteiros
+                            if (!Number.isInteger(p.id)) {
+                                console.warn(`⚠️ Parcela ${index} com ID decimal:`, p.id, '→ Corrigindo para:', Math.floor(p.id));
+                                p.id = Math.floor(p.id);
+                                corrigido = true;
+                            }
+                            
+                            // Garantir que campos essenciais existem
+                            if (!p.status) {
+                                p.status = 'Pendente';
+                                corrigido = true;
+                            }
+                            if (!p.vencimento) {
+                                console.error('❌ Parcela sem vencimento:', p);
+                            }
+                        });
+                        
+                        // Verificar IDs duplicados
+                        const idsUnicos = new Set();
+                        const duplicados = [];
+                        parcelas.forEach(p => {
+                            if (idsUnicos.has(p.id)) {
+                                duplicados.push(p.id);
+                            }
+                            idsUnicos.add(p.id);
+                        });
+                        
+                        if (duplicados.length > 0) {
+                            console.warn('⚠️ IDs duplicados encontrados:', duplicados);
+                            // Corrigir IDs duplicados
+                            parcelas.forEach(p => {
+                                if (duplicados.includes(p.id)) {
+                                    const novoId = Date.now() + Math.floor(Math.random() * 1000);
+                                    console.log(`🔧 Corrigindo ID duplicado ${p.id} → ${novoId}`);
+                                    p.id = novoId;
+                                    corrigido = true;
+                                }
+                            });
+                        }
+                        
+                        // Salvar correções
+                        if (corrigido) {
+                            localStorage.setItem('parcelas', JSON.stringify(parcelas));
+                            console.log('✅ Parcelas corrigidas e salvas!');
+                        }
                     }
                 }
             } catch (e) {
@@ -2616,6 +2675,127 @@
             }
             localStorage.setItem('inflacao', JSON.stringify(inflacao));
             atualizarDashboard();
+        }
+
+        // 🔧 Corrigir Parcelas Problemáticas
+        function corrigirParcelasProblemáticas() {
+            console.log('🔧 Iniciando correção de parcelas...');
+            
+            let corrigidas = 0;
+            let problemas = [];
+            
+            parcelas.forEach((p, index) => {
+                const problema = {
+                    index: index,
+                    id: p.id,
+                    cliente: p.cliente,
+                    parcela: `${p.numeroParcela}/${p.totalParcelas}`,
+                    issues: []
+                };
+                
+                // Verificar ID decimal
+                if (!Number.isInteger(p.id)) {
+                    problema.issues.push(`ID decimal: ${p.id}`);
+                    p.id = Math.floor(p.id);
+                    corrigidas++;
+                }
+                
+                // Verificar status vazio
+                if (!p.status || (p.status !== 'Pago' && p.status !== 'Pendente')) {
+                    problema.issues.push(`Status inválido: ${p.status}`);
+                    p.status = 'Pendente';
+                    corrigidas++;
+                }
+                
+                // Verificar vencimento
+                if (!p.vencimento) {
+                    problema.issues.push('Sem vencimento');
+                }
+                
+                // Verificar valor
+                if (!p.valor || p.valor <= 0) {
+                    problema.issues.push(`Valor inválido: ${p.valor}`);
+                }
+                
+                if (problema.issues.length > 0) {
+                    problemas.push(problema);
+                }
+            });
+            
+            // Verificar duplicados
+            const idsCount = {};
+            parcelas.forEach(p => {
+                idsCount[p.id] = (idsCount[p.id] || 0) + 1;
+            });
+            
+            const duplicados = Object.keys(idsCount).filter(id => idsCount[id] > 1);
+            
+            if (duplicados.length > 0) {
+                console.warn('⚠️ IDs duplicados:', duplicados);
+                parcelas.forEach(p => {
+                    if (duplicados.includes(p.id.toString())) {
+                        const novoId = Date.now() + Math.floor(Math.random() * 10000);
+                        console.log(`🔧 ID duplicado ${p.id} → ${novoId}`);
+                        p.id = novoId;
+                        corrigidas++;
+                    }
+                });
+            }
+            
+            // Salvar correções
+            if (corrigidas > 0) {
+                localStorage.setItem('parcelas', JSON.stringify(parcelas));
+                console.log('✅ Correções salvas!', {corrigidas, problemas});
+                
+                // Mostrar relatório
+                let mensagem = `🔧 Correção concluída!\n\n`;
+                mensagem += `✅ ${corrigidas} problema(s) corrigido(s)\n`;
+                mensagem += `📊 ${parcelas.length} parcelas no total\n\n`;
+                
+                if (problemas.length > 0) {
+                    mensagem += `Problemas encontrados:\n`;
+                    problemas.slice(0, 5).forEach(p => {
+                        mensagem += `\n• ${p.cliente} ${p.parcela}:\n`;
+                        p.issues.forEach(i => mensagem += `  - ${i}\n`);
+                    });
+                    if (problemas.length > 5) {
+                        mensagem += `\n... e mais ${problemas.length - 5} parcela(s)\n`;
+                    }
+                }
+                
+                alert(mensagem);
+                
+                // Recarregar interface
+                renderizarParcelas();
+                atualizarDashboard();
+                mostrarNotificacao(`✓ ${corrigidas} parcela(s) corrigida(s)!`);
+            } else {
+                alert('✅ Nenhum problema encontrado!\n\nTodas as parcelas estão OK.');
+                console.log('✅ Nenhuma correção necessária');
+            }
+        }
+
+        // 🔄 Recarregar Parcelas
+        function recarregarParcelas() {
+            console.log('🔄 Recarregando parcelas...');
+            
+            try {
+                // Recarregar do localStorage
+                const parcelasStr = localStorage.getItem('parcelas');
+                if (parcelasStr) {
+                    parcelas = JSON.parse(parcelasStr);
+                    console.log('✅ Parcelas recarregadas:', parcelas.length);
+                }
+                
+                // Atualizar interface
+                renderizarParcelas();
+                atualizarDashboard();
+                
+                mostrarNotificacao(`✓ ${parcelas.length} parcelas recarregadas!`);
+            } catch (e) {
+                console.error('❌ Erro ao recarregar:', e);
+                alert('Erro ao recarregar parcelas: ' + e.message);
+            }
         }
 
         // Salvar Impostos
