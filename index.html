@@ -8,6 +8,9 @@
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -655,12 +658,12 @@
                         <span class="metric-value" id="ticketMedio">R$ 0</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">Valor em Estoque</span>
-                        <span class="metric-value" id="valorEstoque">R$ 0</span>
+                        <span class="metric-label">Lucro do Mês</span>
+                        <span class="metric-value" id="lucroMesDashboard">R$ 0</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">ROI Real (c/ inflação)</span>
-                        <span class="metric-value" id="roiReal">0%</span>
+                        <span class="metric-label">Lucro Total</span>
+                        <span class="metric-value" id="lucroTotalDashboard">R$ 0</span>
                     </div>
                 </div>
 
@@ -684,18 +687,18 @@
                 </div>
 
                 <div class="analysis-card">
-                    <div class="chart-title">📉 Impacto da Inflação</div>
+                    <div class="chart-title">📊 Métricas Adicionais</div>
                     <div class="metric">
-                        <span class="metric-label">Inflação Acumulada</span>
-                        <span class="metric-value" id="inflacaoAcumulada">0%</span>
+                        <span class="metric-label">Valor em Estoque</span>
+                        <span class="metric-value" id="valorEstoque">R$ 0</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">Perda Poder de Compra</span>
-                        <span class="metric-value" id="perdaInflacao">R$ 0</span>
+                        <span class="metric-label">ROI Real (c/ inflação)</span>
+                        <span class="metric-value" id="roiReal">0%</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">Custo Corrigido</span>
-                        <span class="metric-value" id="custoCorrigido">R$ 0</span>
+                        <span class="metric-label">Lucro Médio/Venda</span>
+                        <span class="metric-value" id="lucroMedioVenda">R$ 0</span>
                     </div>
                     <div class="metric">
                         <span class="metric-label">Lucro Real</span>
@@ -1004,7 +1007,14 @@
         <section id="analise" class="section">
             <h2 class="section-title">📈 Análise Completa</h2>
 
+            <!-- Gráfico Principal - Evolução Mensal -->
             <div class="chart-container">
+                <div class="chart-title">📊 Evolução Mensal - Últimos 12 Meses</div>
+                <canvas id="graficoEvolucao" style="max-height: 300px; margin-top: 20px;"></canvas>
+            </div>
+
+            <!-- Gráfico Comparativo de Barras -->
+            <div class="chart-container" style="margin-top: 30px;">
                 <div class="chart-title">Comparativo: Investimento vs Receita vs Lucro</div>
                 <div style="display: flex; gap: 20px; align-items: flex-end; height: 250px; margin-top: 30px;">
                     <div style="flex: 1; text-align: center;">
@@ -1025,16 +1035,26 @@
                 </div>
             </div>
 
-            <div class="analysis-grid">
+            <!-- Gráfico de Pizza - Composição da Receita -->
+            <div class="analysis-grid" style="margin-top: 30px;">
+                <div class="chart-container">
+                    <div class="chart-title">🍰 Composição da Receita</div>
+                    <canvas id="graficoPizza" style="max-height: 250px; margin-top: 20px;"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">📈 Tendência de Vendas (6 meses)</div>
+                    <canvas id="graficoTendencia" style="max-height: 250px; margin-top: 20px;"></canvas>
+                </div>
+            </div>
+
+            <!-- Cards de Indicadores -->
+            <div class="analysis-grid" style="margin-top: 30px;">
                 <div class="analysis-card">
                     <div class="chart-title">🎯 Indicadores de Performance</div>
                     <div class="metric">
-                        <span class="metric-label">ROI Nominal</span>
+                        <span class="metric-label">ROI (Retorno sobre Investimento)</span>
                         <span class="metric-value" id="analiseROI">0%</span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-label">ROI Real (Descontada Inflação)</span>
-                        <span class="metric-value" id="analiseROIReal">0%</span>
                     </div>
                     <div class="metric">
                         <span class="metric-label">Margem de Lucro</span>
@@ -1043,6 +1063,10 @@
                     <div class="metric">
                         <span class="metric-label">Markup Médio</span>
                         <span class="metric-value" id="analiseMarkup">0%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Ticket Médio</span>
+                        <span class="metric-value" id="analiseTicketMedio">R$ 0</span>
                     </div>
                 </div>
 
@@ -1053,68 +1077,211 @@
                         <span class="metric-value" id="analiseEstoqueInicial">0 un</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">Vendas Realizadas</span>
+                        <span class="metric-label">Unidades Vendidas</span>
                         <span class="metric-value" id="analiseVendidas">0 un</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">Estoque Restante</span>
+                        <span class="metric-label">Estoque Atual</span>
                         <span class="metric-value" id="analiseEstoqueAtual">0 un</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">Capital Imobilizado</span>
-                        <span class="metric-value" id="analiseCapitalEstoque">R$ 0</span>
+                        <span class="metric-label">Taxa de Giro</span>
+                        <span class="metric-value" id="analiseTaxaGiro">0%</span>
                     </div>
                 </div>
 
                 <div class="analysis-card">
-                    <div class="chart-title">📮 Rastreamento Correios</div>
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <label style="font-size: 11px; color: var(--gray); margin-bottom: 5px; display: block;">Código de Rastreio</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input 
-                                type="text" 
-                                id="codigoRastreio" 
-                                placeholder="AA123456789BR" 
-                                style="flex: 1; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; color: var(--light); font-family: 'Space Mono', monospace; text-transform: uppercase;"
-                                maxlength="13"
-                            >
-                            <button 
-                                onclick="rastrearEncomenda()" 
-                                style="padding: 10px 20px; background: linear-gradient(135deg, var(--accent), var(--primary)); border: none; border-radius: 5px; color: white; cursor: pointer; font-weight: 700; font-size: 12px;"
-                            >
-                                🔍 Rastrear
-                            </button>
-                        </div>
+                    <div class="chart-title">💰 Análise Financeira</div>
+                    <div class="metric">
+                        <span class="metric-label">Receita Total</span>
+                        <span class="metric-value" id="analiseReceitaTotal">R$ 0</span>
                     </div>
-                    <div id="resultadoRastreio" style="margin-top: 15px; font-size: 11px; max-height: 300px; overflow-y: auto;">
-                        <div style="text-align: center; padding: 20px; color: var(--gray);">
-                            Digite um código de rastreio dos Correios
-                        </div>
+                    <div class="metric">
+                        <span class="metric-label">Lucro Total</span>
+                        <span class="metric-value" id="analiseLucroTotal">R$ 0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Lucro do Mês</span>
+                        <span class="metric-value" id="analiseLucroMes">R$ 0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Média Mensal</span>
+                        <span class="metric-value" id="analiseMediaMensal">R$ 0</span>
                     </div>
                 </div>
 
                 <div class="analysis-card">
                     <div class="chart-title">💸 Fluxo de Caixa</div>
                     <div class="metric">
-                        <span class="metric-label">Entrada Total</span>
+                        <span class="metric-label">Entrada Total (Recebido)</span>
                         <span class="metric-value" id="analiseEntrada">R$ 0</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">Saída Total</span>
+                        <span class="metric-label">A Receber (Pendente)</span>
+                        <span class="metric-value" id="analiseAReceber">R$ 0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Capital Investido</span>
                         <span class="metric-value" id="analiseSaida">R$ 0</span>
                     </div>
                     <div class="metric">
                         <span class="metric-label">Saldo Operacional</span>
                         <span class="metric-value" id="analiseSaldo">R$ 0</span>
                     </div>
+                </div>
+
+                <div class="analysis-card">
+                    <div class="chart-title">📊 Métricas de Vendas</div>
                     <div class="metric">
-                        <span class="metric-label">Eficiência de Recebimento</span>
+                        <span class="metric-label">Total de Vendas</span>
+                        <span class="metric-value" id="analiseTotalVendas">0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Vendas à Vista</span>
+                        <span class="metric-value" id="analiseVendasVista">0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Vendas Parceladas</span>
+                        <span class="metric-value" id="analiseVendasParceladas">0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">% Parcelamento</span>
+                        <span class="metric-value" id="analisePercParcelamento">0%</span>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <div class="chart-title">⏱️ Velocidade de Vendas</div>
+                    <div class="metric">
+                        <span class="metric-label">Tempo Médio em Estoque</span>
+                        <span class="metric-value" id="analiseTempoEstoque">- dias</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Vendas por Dia</span>
+                        <span class="metric-value" id="analiseVendasDia">0 un/dia</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Prazo para Esgotar</span>
+                        <span class="metric-value" id="analisePrazoEsgotar">- dias</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Status Estoque</span>
+                        <span class="metric-value" id="analiseStatusEstoque">-</span>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <div class="chart-title">📅 Análise Temporal</div>
+                    <div class="metric">
+                        <span class="metric-label">Dias em Operação</span>
+                        <span class="metric-value" id="analiseDiasOperacao">0 dias</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Receita Diária Média</span>
+                        <span class="metric-value" id="analiseReceitaDiaria">R$ 0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Lucro Diário Médio</span>
+                        <span class="metric-value" id="analiseLucroDiario">R$ 0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Crescimento Mensal</span>
+                        <span class="metric-value" id="analiseCrescimento">0%</span>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <div class="chart-title">💳 Análise de Pagamentos</div>
+                    <div class="metric">
+                        <span class="metric-label">Prazo Médio Recebimento</span>
+                        <span class="metric-value" id="analisePrazoMedio">0 dias</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Inadimplência</span>
+                        <span class="metric-value" id="analiseInadimplencia">R$ 0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Parcelas Vencidas</span>
+                        <span class="metric-value" id="analiseParcelasVencidas">0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Taxa Adimplência</span>
+                        <span class="metric-value" id="analiseTaxaAdimplencia">100%</span>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <div class="chart-title">🎯 Metas e Projeções</div>
+                    <div class="metric">
+                        <span class="metric-label">Meta Mensal Sugerida</span>
+                        <span class="metric-value" id="analiseMetaMensal">R$ 0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Projeção Lucro Anual</span>
+                        <span class="metric-value" id="analiseProjecaoAnual">R$ 0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Tempo para Breakeven</span>
+                        <span class="metric-value" id="analiseBreakeven">- meses</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Eficiência Operacional</span>
                         <span class="metric-value" id="analiseEficiencia">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráfico de Evolução do Lucro -->
+            <div class="chart-container" style="margin-top: 30px;">
+                <div class="chart-title">📈 Evolução do Lucro (Últimos 6 Meses)</div>
+                <canvas id="graficoLucroMensal" style="max-height: 300px; margin-top: 20px;"></canvas>
+            </div>
+
+            <!-- Grid com 2 gráficos menores -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; margin-top: 30px;">
+                <div class="chart-container">
+                    <div class="chart-title">🍰 Distribuição de Vendas</div>
+                    <canvas id="graficoDistribuicao" style="max-height: 250px; margin-top: 20px;"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">📊 Performance por Período</div>
+                    <canvas id="graficoPerformance" style="max-height: 250px; margin-top: 20px;"></canvas>
+                </div>
+            </div>
+
+            <!-- Rastreamento Correios -->
+            <div class="chart-container" style="margin-top: 30px;">
+                <div class="chart-title">📮 Rastreamento Correios</div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="font-size: 11px; color: var(--gray); margin-bottom: 5px; display: block;">Código de Rastreio</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input 
+                            type="text" 
+                            id="codigoRastreio" 
+                            placeholder="AA123456789BR" 
+                            style="flex: 1; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; color: var(--light); font-family: 'Space Mono', monospace; text-transform: uppercase;"
+                            maxlength="13"
+                        >
+                        <button 
+                            onclick="rastrearEncomenda()" 
+                            style="padding: 10px 20px; background: linear-gradient(135deg, var(--accent), var(--primary)); border: none; border-radius: 5px; color: white; cursor: pointer; font-weight: 700; font-size: 12px;"
+                        >
+                            🔍 Rastrear
+                        </button>
+                    </div>
+                </div>
+                <div id="resultadoRastreio" style="margin-top: 15px; font-size: 11px; max-height: 300px; overflow-y: auto;">
+                    <div style="text-align: center; padding: 20px; color: var(--gray);">
+                        Digite um código de rastreio dos Correios
                     </div>
                 </div>
             </div>
         </section>
     </div>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
 
     <script>
         // ==========================================
@@ -1849,7 +2016,10 @@
             const tbody = document.getElementById('tabelaCompras');
             tbody.innerHTML = '';
 
-            compras.forEach(c => {
+            // Ordenar por data (mais antigas primeiro = ordem cronológica crescente)
+            const comprasOrdenadas = [...compras].sort((a, b) => new Date(a.data) - new Date(b.data));
+
+            comprasOrdenadas.forEach(c => {
                 tbody.innerHTML += `
                     <tr>
                         <td>${new Date(c.data).toLocaleDateString('pt-BR')}</td>
@@ -2124,7 +2294,10 @@
             const tbody = document.getElementById('tabelaVendas');
             tbody.innerHTML = '';
 
-            vendas.forEach(v => {
+            // Ordenar por data (mais antigas primeiro = ordem cronológica crescente)
+            const vendasOrdenadas = [...vendas].sort((a, b) => new Date(a.data) - new Date(b.data));
+
+            vendasOrdenadas.forEach(v => {
                 const badgeClass = v.status === 'Pago' ? 'badge-success' : 'badge-warning';
                 tbody.innerHTML += `
                     <tr>
@@ -3546,6 +3719,7 @@
             renderizarVendas();
             renderizarParcelas();
             atualizarDashboard();
+            inicializarGraficos();
             
             console.log('================================================');
             console.log('✅ Sistema carregado e pronto para uso!');
