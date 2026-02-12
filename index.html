@@ -871,6 +871,15 @@
             </div>
 
             <!-- Calendário de Vencimentos Mensais -->
+            <div class="chart-container" style="margin-top: 30px;">
+                <div class="chart-title">💰 Resumo Mensal de Recebimentos</div>
+                <p style="color: var(--gray); margin-bottom: 20px; font-size: 12px;">
+                    Total a receber por mês (parcelas pendentes agrupadas)
+                </p>
+                <div id="resumoMensal" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;"></div>
+            </div>
+
+            <!-- Calendário de Vencimentos Mensais -->
             <div class="chart-container">
                 <div class="chart-title">📅 Calendário de Recebimentos Mensais</div>
                 <div id="calendarioMensal" style="display: grid; gap: 15px;"></div>
@@ -2241,8 +2250,126 @@
             document.getElementById('lucroRecebido').textContent = formatarMoeda(lucroRecebido);
             document.getElementById('margemMediaParcelas').textContent = margemMedia.toFixed(1) + '%';
 
+            // Renderizar Resumo Mensal
+            renderizarResumoMensal();
+            
             // Renderizar calendário mensal
             renderizarCalendarioMensal();
+        }
+
+        // Renderizar Resumo Mensal de Recebimentos
+        function renderizarResumoMensal() {
+            const container = document.getElementById('resumoMensal');
+            if (!container) return;
+            
+            // Filtrar apenas parcelas pendentes
+            const parcelasPendentes = parcelas.filter(p => p.status === 'Pendente');
+            
+            // Agrupar parcelas por mês/ano
+            const parcelasPorMes = {};
+            
+            parcelasPendentes.forEach(p => {
+                const data = new Date(p.vencimento);
+                const mesAno = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
+                
+                if (!parcelasPorMes[mesAno]) {
+                    parcelasPorMes[mesAno] = {
+                        data: data,
+                        parcelas: [],
+                        valorTotal: 0,
+                        lucroTotal: 0,
+                        quantidade: 0
+                    };
+                }
+                
+                parcelasPorMes[mesAno].parcelas.push(p);
+                parcelasPorMes[mesAno].valorTotal += p.valor;
+                parcelasPorMes[mesAno].lucroTotal += (p.lucroParcela || 0);
+                parcelasPorMes[mesAno].quantidade++;
+            });
+            
+            // Ordenar por data
+            const mesesOrdenados = Object.keys(parcelasPorMes).sort();
+            
+            // Calcular total geral
+            const totalGeral = mesesOrdenados.reduce((acc, mes) => acc + parcelasPorMes[mes].valorTotal, 0);
+            const lucroGeral = mesesOrdenados.reduce((acc, mes) => acc + parcelasPorMes[mes].lucroTotal, 0);
+            
+            // Gerar HTML
+            let html = '';
+            
+            mesesOrdenados.forEach(mesAno => {
+                const dados = parcelasPorMes[mesAno];
+                const data = dados.data;
+                const mesNome = data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                const percentualTotal = totalGeral > 0 ? (dados.valorTotal / totalGeral * 100) : 0;
+                
+                html += `
+                    <div style="background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 15px; padding: 20px; transition: all 0.3s ease;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div style="font-size: 16px; font-weight: 700; color: var(--accent); text-transform: capitalize;">
+                                📅 ${mesNome}
+                            </div>
+                            <div style="font-size: 12px; color: var(--gray); background: rgba(247, 184, 1, 0.2); padding: 4px 10px; border-radius: 10px;">
+                                ${dados.quantidade} parcela${dados.quantidade > 1 ? 's' : ''}
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; color: var(--gray); margin-bottom: 5px;">VALOR A RECEBER:</div>
+                            <div style="font-size: 28px; font-weight: 800; color: var(--success); font-family: 'Syne', sans-serif;">
+                                ${formatarMoeda(dados.valorTotal)}
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; color: var(--gray); margin-bottom: 5px;">LUCRO ESTIMADO:</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--accent);">
+                                ${formatarMoeda(dados.lucroTotal)}
+                            </div>
+                        </div>
+                        
+                        <div style="background: rgba(255, 255, 255, 0.05); height: 6px; border-radius: 3px; overflow: hidden; margin-top: 15px;">
+                            <div style="background: linear-gradient(90deg, var(--success), var(--accent)); height: 100%; width: ${percentualTotal}%; transition: width 1s ease;"></div>
+                        </div>
+                        <div style="font-size: 10px; color: var(--gray); margin-top: 5px; text-align: center;">
+                            ${percentualTotal.toFixed(1)}% do total a receber
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Card de TOTAL GERAL
+            if (mesesOrdenados.length > 0) {
+                html += `
+                    <div style="background: linear-gradient(135deg, rgba(247, 184, 1, 0.2), rgba(255, 107, 53, 0.2)); border: 3px solid var(--accent); border-radius: 15px; padding: 20px; grid-column: 1 / -1;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 14px; color: var(--gray); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">
+                                💰 TOTAL A RECEBER (TODOS OS MESES)
+                            </div>
+                            <div style="font-size: 42px; font-weight: 900; color: var(--success); font-family: 'Syne', sans-serif; margin-bottom: 10px;">
+                                ${formatarMoeda(totalGeral)}
+                            </div>
+                            <div style="font-size: 16px; color: var(--accent); font-weight: 700;">
+                                Lucro estimado: ${formatarMoeda(lucroGeral)}
+                            </div>
+                            <div style="font-size: 12px; color: var(--gray); margin-top: 10px;">
+                                ${parcelasPendentes.length} parcela${parcelasPendentes.length > 1 ? 's' : ''} pendente${parcelasPendentes.length > 1 ? 's' : ''} • ${mesesOrdenados.length} mês${mesesOrdenados.length > 1 ? 'es' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                html = `
+                    <div style="text-align: center; padding: 60px; color: var(--gray); grid-column: 1 / -1;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">📭</div>
+                        <div style="font-size: 18px; font-weight: 600;">Nenhuma parcela pendente</div>
+                        <div style="font-size: 14px; margin-top: 5px;">Todas as parcelas foram pagas!</div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
         }
 
         // Renderizar Calendário Mensal
@@ -2377,8 +2504,31 @@
 
         // Toggle Pagamento via Checkbox
         function togglePagamento(id, isPago) {
-            const parcela = parcelas.find(p => p.id === id);
-            if (!parcela) return;
+            console.log('🔄 togglePagamento chamado:', { id, isPago, tipo: typeof id });
+            
+            // Converter ID para número se necessário
+            const idNumerico = typeof id === 'string' ? parseInt(id) : id;
+            
+            const parcela = parcelas.find(p => p.id == id || p.id == idNumerico);
+            
+            if (!parcela) {
+                console.error('❌ Parcela não encontrada!', { 
+                    idBuscado: id, 
+                    idNumerico: idNumerico,
+                    parcelasDisponiveis: parcelas.map(p => ({ id: p.id, cliente: p.cliente }))
+                });
+                alert('Erro: Parcela não encontrada! Recarregue a página.');
+                renderizarParcelas();
+                return;
+            }
+
+            console.log('✅ Parcela encontrada:', {
+                id: parcela.id,
+                cliente: parcela.cliente,
+                parcela: `${parcela.numeroParcela}/${parcela.totalParcelas}`,
+                statusAnterior: parcela.status,
+                novoStatus: isPago ? 'Pago' : 'Pendente'
+            });
 
             if (isPago) {
                 // Marcar como pago
@@ -2389,7 +2539,8 @@
                     cliente: parcela.cliente,
                     parcela: `${parcela.numeroParcela}/${parcela.totalParcelas}`,
                     valor: formatarMoeda(parcela.valor),
-                    lucro: formatarMoeda(parcela.lucroParcela || 0)
+                    lucro: formatarMoeda(parcela.lucroParcela || 0),
+                    data: parcela.dataPagamento
                 });
                 
             } else {
@@ -2403,15 +2554,28 @@
                 });
             }
             
+            // Salvar no localStorage
             localStorage.setItem('parcelas', JSON.stringify(parcelas));
+            console.log('💾 Salvo no localStorage');
+            
+            // 🔥 SALVAR NA CLOUD AUTOMATICAMENTE
+            if (typeof salvarParcelaNaCloud === 'function' && supabaseClient && usuarioCloud) {
+                salvarParcelaNaCloud(parcela);
+                console.log('☁️ Enviado para cloud');
+            }
+            
+            // Atualizar interface
             renderizarParcelas();
-            atualizarDashboard(); // Atualiza financeiro automaticamente
+            atualizarDashboard();
+            console.log('🔄 Interface atualizada');
             
             // Mostrar notificação rápida
-            mostrarNotificacao(isPago ? 
-                `✓ Parcela ${parcela.numeroParcela}/${parcela.totalParcelas} RECEBIDA! Valor: ${formatarMoeda(parcela.valor)}` : 
-                `⏸️ Parcela ${parcela.numeroParcela}/${parcela.totalParcelas} marcada como PENDENTE`
-            );
+            if (typeof mostrarNotificacao === 'function') {
+                mostrarNotificacao(isPago ? 
+                    `✓ Parcela ${parcela.numeroParcela}/${parcela.totalParcelas} RECEBIDA! Valor: ${formatarMoeda(parcela.valor)}` : 
+                    `⏸️ Parcela ${parcela.numeroParcela}/${parcela.totalParcelas} marcada como PENDENTE`
+                );
+            }
         }
 
         // Mostrar notificação rápida
